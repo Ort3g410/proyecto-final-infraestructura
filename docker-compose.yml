@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # --- CAPA DE DATOS ---
+  db:
+    image: mariadb:10.6
+    container_name: wordpress_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_segura
+      MYSQL_DATABASE: wordpress_db
+      MYSQL_USER: wp_user
+      MYSQL_PASSWORD: wp_password_segura
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - vnet-wordpress
+
+  # --- CAPA DE APLICACIÓN ---
+  wordpress:
+    depends_on:
+      - db
+    image: wordpress:latest
+    container_name: wordpress_app
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wp_user
+      WORDPRESS_DB_PASSWORD: wp_password_segura
+      WORDPRESS_DB_NAME: wordpress_db
+    volumes:
+      - wp_data:/var/www/html
+    networks:
+      - vnet-wordpress
+
+  # --- CAPA DE MONITOREO ---
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    container_name: monitoring_cadvisor
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - vnet-wordpress
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: monitoring_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+    networks:
+      - vnet-wordpress
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: monitoring_grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - vnet-wordpress
+
+networks:
+  vnet-wordpress:
+    driver: bridge
+
+volumes:
+  db_data:
+  wp_data:
+  prometheus_data:
